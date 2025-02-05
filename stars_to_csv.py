@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from astropy.coordinates import SkyCoord
+import astropy.units as u
 
 type = 'json'
 
@@ -89,29 +90,38 @@ if type =='fwf':
     stars.to_csv('StartPositionXYZ.csv')
 
 
-def convert_to_xyz(ra_str, dec_str, magnitude):
-    # Create SkyCoord object to handle the conversion
-    coords = SkyCoord(ra_str, dec_str, unit=(u.hourangle, u.deg))
+def convert_df_to_xyz_sphere(df):
+    coords = SkyCoord(df['RA'], df['DEC'], unit=(u.hourangle, u.deg))
     
     # Get RA and DEC in radians
     ra_rad = coords.ra.rad
     dec_rad = coords.dec.rad
     
-    # Calculate distance from magnitude (using a simple approximation)
     # Distance = 10^((magnitude + 5)/5) parsecs
-    distance = 10**((magnitude + 5)/5)
+    df['Distance'] = 10**((df['MAG'] + 5)/5)
     
     # Convert to Cartesian coordinates
-    x = distance * np.cos(dec_rad) * np.cos(ra_rad)
-    y = distance * np.cos(dec_rad) * np.sin(ra_rad)
-    z = distance * np.sin(dec_rad)
+    df['x'] = np.cos(dec_rad) * np.cos(ra_rad)
+    df['y'] = np.cos(dec_rad) * np.sin(ra_rad)
+    df['z'] = np.sin(dec_rad)
     
-    return x, y, z
+    return df
+
 df = pd.read_json("BSC.json")
+df2 = pd.read_json("bsc5.json")
+columns_to_keep = ['HR', 'SpectralCls']
+df2 = df2[columns_to_keep]
 df = df.rename(columns={'harvard_ref_#': 'Index'})
-print(df)
-print(df)
-print(df.columns)
+df = df.merge(
+    df2,
+    left_on='Index',
+    right_on='HR',
+    how='left'
+)
+
+result = convert_df_to_xyz_sphere(df)
+result.to_csv('StartPositionXYZ2.csv')
+print(result)
 # print(df) #todo test
 
 # Calculate RA in degrees

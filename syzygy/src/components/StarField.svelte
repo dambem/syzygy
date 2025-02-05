@@ -6,17 +6,93 @@
   import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
   import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
   import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-
+  import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
   let container;
   let stars = [];
 
+  const constellations = {
+    ursa_major: {
+        name: "Ursa Major",
+        stars: [4301, 4295, 4660, 4905, 5191, 5054, 5055 , 5054, 5062 ],
+        color: 0xff0000,
+        visible: false,
+        lines: [] // Store line objects for removal
+    }
+    }
   onMount(async () => {
     stars = await loadStarData();
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 10000)
+    const camera = new THREE.PerspectiveCamera(1, window.innerWidth/window.innerHeight, 0.1, 10000)
     const renderer = new THREE.WebGLRenderer();
+    const gui = new GUI();
+    const mouseOver = gui.addFolder('SelectedStar');
+    const guiState = { selectedStar: 'No star selected' };
+
+    const constellationsFolder = gui.addFolder('Constellations');
+    Object.keys(constellations).forEach(constId => {
+    const constellation = constellations[constId];
+    constellationsFolder.add(constellation, 'visible')
+        .name(constellation.name)
+        .onChange(() => updateConstellation(constId));
+    });
+    function updateConstellation(constId) {
+        const constellation = constellations[constId];
+        
+        // Remove existing lines if they exist
+        constellation.lines.forEach(line => {
+            scene.remove(line);
+        });
+        constellation.lines = [];
+        
+        // If visible, draw new lines
+        if (constellation.visible) {
+            const selectedPoints = stars.filter(star => 
+                constellation.stars.includes(star.hi)
+            );
+            
+            const material = new LineMaterial({
+                color: constellation.color,
+                linewidth: 2,
+                worldUnits: false,
+                dashed: false,
+                alphaToCoverage: true
+            });
+
+            // Create lines between consecutive points
+            for (let i = 1; i < selectedPoints.length; i++) {
+                const geometry = new LineGeometry();
+                const linePositions = new Float32Array([
+                    selectedPoints[i-1].x, selectedPoints[i-1].y, selectedPoints[i-1].z,
+                    selectedPoints[i].x, selectedPoints[i].y, selectedPoints[i].z
+                ]);
+                
+                geometry.setPositions(linePositions);
+                const line = new LineSegments2(geometry, material);
+                scene.add(line);
+                constellation.lines.push(line);
+            }
+            }
+    }
+    function addConstellation(id, name, stars, color = 0xffffff) {
+    constellations[id] = {
+        name: name,
+        stars: stars,
+        color: color,
+        visible: false,
+        lines: []
+    };
+    
+    // Add GUI control for new constellation
+    constellationsFolder.add(constellations[id], 'visible')
+        .name(name)
+        .onChange(() => updateConstellation(id));
+    }
+    addConstellation('cassiopeia', 'Cassiopeia', [1234, 5678, 9012], 0x0000ff);
+
     scene.background = new THREE.Color(0x000000);
+    const fogColor = new THREE.Color(0x000010);
+    scene.fog = new THREE.FogExp2(fogColor, 0.02);
 
     renderer.setSize(window.innerWidth, window.innerHeight)
     container.appendChild(renderer.domElement);  // Add this line!
@@ -28,11 +104,10 @@
 
     const radius = new Float32Array(stars.length)
     stars.forEach((star, i) => {
-        positions[i*3] = star.x;
-        positions[i*3 + 1] = star.y;
-        positions[i*3 + 2] = star.z;
-        // Set initial color to white
+        positions.set([star.x, star.y, star.z], i * 3);
         color.setHSL((star.y / 200 + 1) / 2, 1.0, 0.5, THREE.SRGBColorSpace);
+        // const hue = Math.floor((200 + 1) / 2));
+        // color.setHex(`${hue.toString(16)}${hue.toString(16)}${hue.toString(16)}`);
         colors.setXYZ(i, color.r, color.g, color.b);
         radius[i] = star.brightness;
     })
@@ -110,8 +185,8 @@
 
     camera.position.z = 200;
     const controls = new OrbitControls(camera, renderer.domElement);
-    let selectedPoints = stars.filter(star => [4301, 4295, 4554, 4660, 4905, 5054, 5191].includes(star.hi));
-
+    let selectedPoints = [];
+    // 1948, 1903
     // Add raycaster for clicking individual stars
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
@@ -119,8 +194,10 @@
 
 
     function onClick(event) {
-        mouse.x = (event.clientX/ window.innerWidth) * 2 -1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 +1;
+        const rect = renderer.domElement.getBoundingClientRect();
+
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObject(points);
 
@@ -134,25 +211,25 @@
             colors.setXYZ(index, color.r, color.g, color.b);
             points.geometry.attributes.color.needsUpdate = true;
             selectedPoints.push(stars[index]);
-
-            if (selectedPoints.length >= 2) {
+            if (selectedPoints && selectedPoints.length >= 2) {
                 // Create line between two selected points
                 // Create material with additional options available with Line2
+                console.log(selectedPoints)
                 const material = new LineMaterial({
-                        color: 0xff0000,
+                        color: 0xffff00,
                         linewidth: 2, // In pixels
                         worldUnits: false, // Set true if you want the width in world units
                         dashed: false,
                         alphaToCoverage: true // Helps with antialiasing
                     });
-                for (let i = 0; i < selectedPoints.length; i++) {
-                    var geometry = new LineGeometry();
+                for (let i = 1; i < selectedPoints.length; i++) {
+                    var geometry2 = new LineGeometry();
                     var linePositions = new Float32Array([
-                    selectedPoints[i].x, selectedPoints[i].y, selectedPoints[i].z,
-                    selectedPoints[i+1].x, selectedPoints[i+1].y, selectedPoints[i+1].z
+                        selectedPoints[i-1].x, selectedPoints[i-1].y, selectedPoints[i-1].z,
+                        selectedPoints[i].x, selectedPoints[i].y, selectedPoints[i].z
                     ]);                    
-                    geometry.setPositions(linePositions);
-                    var line = new LineSegments2(geometry, material);
+                    geometry2.setPositions(linePositions);
+                    var line = new LineSegments2(geometry2, material);
                     scene.add(line);   
                 }
                 selectedPoints = [];
@@ -162,15 +239,17 @@
     }
 
 
+    mouseOver.add(guiState, 'selectedStar')
+    .name('Label')
+    .listen();
+
     container.addEventListener('click', onClick);  // For individual stars
     var lastHoveredIndex = -1
     function update(event) {
         mouse.x = (event.clientX/ window.innerWidth) * 2 -1;
         mouse.y = -(event.clientY / window.innerHeight) * 2 +1;
         raycaster.setFromCamera(mouse, camera);
-        // console.log("update!")
         var intersects_2 = raycaster.intersectObject(points);
-        console.log(intersects_2)
         if (lastHoveredIndex !== -1) {
             const star = stars[lastHoveredIndex]
             color.setHSL((star.y / 200 + 1) / 2, 1.0, 0.5, THREE.SRGBColorSpace);
@@ -180,6 +259,7 @@
         if (intersects_2.length > 0) {
             const index = intersects_2[0].index;
             const star = stars[index]
+            guiState.selectedStar = 'id:'+ star.hi + 'c:' + star.class || 'Unnamed star';
 
             const colors = points.geometry.attributes.color;
             color.setHSL(1.0, 0.7, 0.5, THREE.SRGBColorSpace);
@@ -198,6 +278,8 @@
         requestAnimationFrame(animate);
         material.uniforms.time.value = performance.now() / 1000;        
         controls.update();
+        raycaster.setFromCamera(mouse, camera);
+
         renderer.render(scene, camera);
     }
 
@@ -224,5 +306,6 @@
         .star-container {
         width: 100%;
         height: 100vh;
+        overflow: hidden;
     }
 </style>

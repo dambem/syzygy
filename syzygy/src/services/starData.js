@@ -1,7 +1,7 @@
 import Papa from 'papaparse';
 
 export async function loadStarData() {
-    const response = await fetch('/data/StartPositionXYZ.csv');
+    const response = await fetch('/data/StartPositionXYZ3.csv');
     const text = await response.text();
     
     // Use Papa Parse for more robust CSV handling
@@ -11,6 +11,16 @@ export async function loadStarData() {
         skipEmptyLines: true
     });
     
+    const class_to_color ={
+        'O':'#0000FF',
+        'B':'#A0CAF0',
+        'A':'#FFFFFF',
+        'F':'#FFF7C8',
+        'G':'#FFE87C',
+        'K':'#FFA500',
+        'M':'#FF6B61',
+    
+      }
     function calculateBrightness(magnitude) {
         // Base dimming factor
         const dimmingFactor = 2.5;
@@ -23,7 +33,17 @@ export async function loadStarData() {
         
         return relativeBrightness;
     }
+
+    function slice_class(test) {
+        if (!test) return 'A'; // Handle null/undefined
+        return test[0]; // Get first character
+    }
     
+    function colorStar(test) {
+        if (!test) return '#FFFFFF'; // Handle null/undefined
+        return class_to_color[test[0]]; // Get first character
+
+    }
     return results.data.map(row => ({
         hi: row.Index,
         x: row.x,
@@ -32,6 +52,8 @@ export async function loadStarData() {
         ra: row.RA,
         dec: row.DEC,
         distance: row.Distance,
-        brightness: calculateBrightness(row.Vmag)
+        class: slice_class(row.SpectralCls),
+        color: colorStar(row.SpectralCls),
+        brightness: calculateBrightness(row.MAG)
     }));
 }
