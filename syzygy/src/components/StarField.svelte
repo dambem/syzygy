@@ -7,9 +7,26 @@
   import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
   import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
   import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+  import vertexShader from '../shaders/particle.vert?raw';
+  import fragmentShader from '../shaders/particle.frag?raw';
+  import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+  import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+  import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+
   let container;
   let stars = [];
+  const class_to_color = {
+    'O': [0.667, 1.000, 0.500],  // Deep blue
+    'B': [0.581, 0.730, 0.780],  // Light blue
+    'A': [0.000, 0.000, 1.000],  // Pure white
+    'F': [0.142, 1.000, 0.890],  // Very light yellow
+    'G': [0.136, 1.000, 0.740],  // Yellow
+    'K': [0.108, 1.000, 0.500],  // Orange
+    'M': [0.011, 1.000, 0.690],   // Reddish
+    'S': [0.050, 1.000, 0.500],   // Orange-red
+    'C': [0.029, 1.000, 0.500]   // Deep red
 
+    }
   const constellations = {
     ursa_major: {
         name: "Ursa Major",
@@ -21,7 +38,6 @@
     }
   onMount(async () => {
     stars = await loadStarData();
-
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(1, window.innerWidth/window.innerHeight, 0.1, 10000)
     const renderer = new THREE.WebGLRenderer();
@@ -98,29 +114,64 @@
     container.appendChild(renderer.domElement);  // Add this line!
 
     const geometry = new THREE.BufferGeometry();
+    const sphereGeometry = new THREE.SphereGeometry(1, 6, 6);
+    const material2 = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    transparent: true,
+    opacity: 0.8
+    });
+    const instancedMesh = new THREE.InstancedMesh(
+    sphereGeometry,
+    material2,
+    stars.length
+    );
+
     const positions = new Float32Array(stars.length * 3);
     const colors = new THREE.Float32BufferAttribute(stars.length * 3, 3);
     const color = new THREE.Color();
+    const matrix = new THREE.Matrix4();
 
     const radius = new Float32Array(stars.length)
     stars.forEach((star, i) => {
         positions.set([star.x, star.y, star.z], i * 3);
-        color.setHSL((star.y / 200 + 1) / 2, 1.0, 0.5, THREE.SRGBColorSpace);
+        // color.setHSL(class_to_color['A'], THREE.SRGBColorSpace);
+        matrix.setPosition(star.x, star.y, star.z);
+        const scale = star.brightness;
+        matrix.scale(new THREE.Vector3(0.1, 0.1, 0.1));
+        instancedMesh.setMatrixAt(i, matrix);
+
+        color.setHSL(
+            class_to_color[star.class][0],  // hue
+            class_to_color[star.class][1],  // saturation
+            class_to_color[star.class][2]   // lightness
+            , THREE.SRGBColorSpace
+        );
+        instancedMesh.setColorAt(i, color);
+
         // const hue = Math.floor((200 + 1) / 2));
-        // color.setHex(`${hue.toString(16)}${hue.toString(16)}${hue.toString(16)}`);
+        // if (star.class == 'A')
+        //     colors.setXYZ(i, 0, 2, 0)
+        // else
         colors.setXYZ(i, color.r, color.g, color.b);
+        // color.setHex(`${hue.toString(16)}${hue.toString(16)}${hue.toString(16)}`);
         radius[i] = star.brightness;
     })
+    const ambientLight = new THREE.AmbientLight(0x404040);
+    scene.add(ambientLight);
+    const pointLight = new THREE.PointLight(0xffffff, 1);
+    pointLight.position.set(100, 100, 100);
+    scene.add(pointLight);
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('color', colors);
     geometry.setAttribute('radius', new THREE.BufferAttribute(radius, 1))
-
+    console.log(instancedMesh)
     // const material = new THREE.PointsMaterial({
     //         size: 1,
     //         color: 0xFFFFFF
     // });
     const sprite = new THREE.TextureLoader().load( 'textures/sprites/circle.png' );
     sprite.colorSpace = THREE.SRGBColorSpace;
+    // const sprite = new THREE.CanvasTexture(container);
 
     // Create custom shader material
     const material = new THREE.ShaderMaterial({
@@ -129,52 +180,8 @@
             time: { value: 0.0 }
 
         },
-        vertexShader: `
-            attribute float radius;
-            attribute vec3 color;
-            varying vec3 vColor;
-            varying float vRadius;
-
-            void main() {
-                vColor = color;
-                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                gl_PointSize = radius * 5.0 * (300.0 / -mvPosition.z);
-                gl_Position = projectionMatrix * mvPosition;
-            }
-        `,
-        fragmentShader: `
-        uniform sampler2D sprite;
-        uniform float time;
-
-        varying vec3 vColor;
-        varying float vRadius;
-        float rand(vec2 co) {
-            return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
-        }
-        void main() {
-            vec2 center = vec2(0.5, 0.5);
-            float dist = length(gl_PointCoord - center);
-            
-            // Create base texture
-            vec4 texColor = texture2D(sprite, gl_PointCoord);
-            
-            float sparkleTime = time * 2.0;
-            float sparklePhase = rand(vec2(gl_PointCoord.x, gl_PointCoord.y)) * 6.28318;
-            float sparkle = sin(sparkleTime + sparklePhase) * 0.5 + 0.5;
-            sparkle *= (1.0 - dist * 2.0); // Fade sparkle at edges
-            float glow = 1.0 - smoothstep(0.0, 0.5, dist);
-            vec3 glowColor = vColor * glow * 0.5;
-            
-            vec3 finalColor = vColor * texColor.rgb + glowColor;
-            finalColor += finalColor * sparkle * 0.3 * vRadius; // Add sparkle effect
-            
-            float alpha = texColor.a + glow * 0.3;
-            
-            gl_FragColor = vec4(finalColor, alpha);
-        }
-
-    `,
-
+        vertexShader: vertexShader,
+        fragmentShader: fragmentShader,
         transparent: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending  // Important for glow effect
@@ -182,12 +189,27 @@
 
     const points = new THREE.Points(geometry, material);
     scene.add(points);
-
+    // scene.add(instancedMesh);
+    const bloomParams = {
+        exposure: 2,
+        bloomStrength: 1.4,
+        bloomThreshold: 0.5,
+        bloomRadius: 0.1
+    };
+    const renderScene = new RenderPass(scene, camera);
+        const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        bloomParams.bloomStrength,
+        bloomParams.bloomRadius,
+        bloomParams.bloomThreshold
+    );
+    const composer = new EffectComposer(renderer);
+    composer.addPass(renderScene);
+    composer.addPass(bloomPass);
     camera.position.z = 200;
     const controls = new OrbitControls(camera, renderer.domElement);
     let selectedPoints = [];
-    // 1948, 1903
-    // Add raycaster for clicking individual stars
+
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
@@ -252,7 +274,12 @@
         var intersects_2 = raycaster.intersectObject(points);
         if (lastHoveredIndex !== -1) {
             const star = stars[lastHoveredIndex]
-            color.setHSL((star.y / 200 + 1) / 2, 1.0, 0.5, THREE.SRGBColorSpace);
+            color.setHSL(
+            class_to_color[star.class][0],  // hue
+            class_to_color[star.class][1],  // saturation
+            class_to_color[star.class][2]   // lightness
+            , THREE.SRGBColorSpace
+            );            
             colors.setXYZ(lastHoveredIndex, color.r, color.g, color.b);
 
         }
@@ -279,8 +306,7 @@
         material.uniforms.time.value = performance.now() / 1000;        
         controls.update();
         raycaster.setFromCamera(mouse, camera);
-
-        renderer.render(scene, camera);
+        composer.render();
     }
 
     animate();
