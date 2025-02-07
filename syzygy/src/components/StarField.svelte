@@ -39,7 +39,7 @@
   onMount(async () => {
     stars = await loadStarData();
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(1, window.innerWidth/window.innerHeight, 0.1, 10000)
+    const camera = new THREE.PerspectiveCamera(1, window.innerWidth/window.innerHeight, 0.1, 10000000)
     const renderer = new THREE.WebGLRenderer();
     const gui = new GUI();
     const mouseOver = gui.addFolder('SelectedStar');
@@ -107,18 +107,18 @@
     addConstellation('cassiopeia', 'Cassiopeia', [1234, 5678, 9012], 0x0000ff);
 
     scene.background = new THREE.Color(0x000000);
-    const fogColor = new THREE.Color(0x000010);
-    scene.fog = new THREE.FogExp2(fogColor, 0.02);
+    // const fogColor = new THREE.Color(0x000010);
+    // scene.fog = new THREE.FogExp2(fogColor, 0.02);
 
     renderer.setSize(window.innerWidth, window.innerHeight)
     container.appendChild(renderer.domElement);  // Add this line!
 
     const geometry = new THREE.BufferGeometry();
-    const sphereGeometry = new THREE.SphereGeometry(1, 6, 6);
+    const sphereGeometry = new THREE.SphereGeometry(1, 16, 16);
     const material2 = new THREE.MeshBasicMaterial({
     color: 0xffffff,
-    transparent: true,
-    opacity: 0.8
+    transparent: false,
+    opacity: 1.0
     });
     const instancedMesh = new THREE.InstancedMesh(
     sphereGeometry,
@@ -135,10 +135,13 @@
     stars.forEach((star, i) => {
         positions.set([star.x, star.y, star.z], i * 3);
         // color.setHSL(class_to_color['A'], THREE.SRGBColorSpace);
-        matrix.setPosition(star.x, star.y, star.z);
+        // matrix.setPosition(star.x, star.y, star.z);
         const scale = star.brightness;
-        matrix.scale(new THREE.Vector3(0.1, 0.1, 0.1));
-        instancedMesh.setMatrixAt(i, matrix);
+        // matrix.scale(new THREE.Vector3(1,1,1));
+        // matrix.identity()
+        // .setPosition(star.x, star.y, star.z)
+        // .scale(new THREE.Vector3(star.brightness, star.brightness, star.brightness));
+        // instancedMesh.setMatrixAt(i, matrix);
 
         color.setHSL(
             class_to_color[star.class][0],  // hue
@@ -164,16 +167,10 @@
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('color', colors);
     geometry.setAttribute('radius', new THREE.BufferAttribute(radius, 1))
-    console.log(instancedMesh)
-    // const material = new THREE.PointsMaterial({
-    //         size: 1,
-    //         color: 0xFFFFFF
-    // });
-    const sprite = new THREE.TextureLoader().load( 'textures/sprites/circle.png' );
+ 
+    const sprite = new THREE.TextureLoader().load( 'textures/sprites/star.png' );
     sprite.colorSpace = THREE.SRGBColorSpace;
-    // const sprite = new THREE.CanvasTexture(container);
-
-    // Create custom shader material
+ 
     const material = new THREE.ShaderMaterial({
         uniforms: {
             sprite: { value: sprite },
@@ -183,16 +180,15 @@
         vertexShader: vertexShader,
         fragmentShader: fragmentShader,
         transparent: true,
-        depthWrite: false,
+        depthWrite: true,
         blending: THREE.AdditiveBlending  // Important for glow effect
     });
 
     const points = new THREE.Points(geometry, material);
     scene.add(points);
-    // scene.add(instancedMesh);
     const bloomParams = {
-        exposure: 2,
-        bloomStrength: 1.4,
+        exposure: 5,
+        bloomStrength: 2.5,
         bloomThreshold: 0.5,
         bloomRadius: 0.1
     };
@@ -206,7 +202,8 @@
     const composer = new EffectComposer(renderer);
     composer.addPass(renderScene);
     composer.addPass(bloomPass);
-    camera.position.z = 200;
+    camera.position.z = 1;
+    
     const controls = new OrbitControls(camera, renderer.domElement);
     let selectedPoints = [];
 
@@ -260,12 +257,14 @@
 
     }
 
+    const axesHelper = new THREE.AxesHelper( 5 );
+    scene.add( axesHelper );
 
     mouseOver.add(guiState, 'selectedStar')
     .name('Label')
     .listen();
 
-    container.addEventListener('click', onClick);  // For individual stars
+    // container.addEventListener('click', onClick);  // For individual stars
     var lastHoveredIndex = -1
     function update(event) {
         mouse.x = (event.clientX/ window.innerWidth) * 2 -1;
