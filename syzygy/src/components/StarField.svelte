@@ -30,11 +30,19 @@
   const constellations = {
     ursa_major: {
         name: "Ursa Major",
-        stars: [4301, 4295, 4660, 4905, 5191, 5054, 5055 , 5054, 5062 ],
+        stars: [4301, 4295, 4660, 4905, 5191, 5054, 5055 , 5054 ],
         color: 0xff0000,
         visible: false,
         lines: [] // Store line objects for removal
-    }
+    },
+      "aries": {
+    "name": "Ursa Major Additional",
+    "stars": [    4335, 4033, 4069, 3775, 3888, 3569, 3594, 4377, 4518    ],
+    "color": 16711680,
+    "visible": false,
+    "lines": []
+  },
+
     }
   onMount(async () => {
     stars = await loadStarData();
@@ -72,7 +80,7 @@
             );
             
             const material = new LineMaterial({
-                color: constellation.color,
+                color: 0xffff00,
                 linewidth: 2,
                 worldUnits: false,
                 dashed: false,
@@ -108,7 +116,7 @@
         .name(name)
         .onChange(() => updateConstellation(id));
     }
-    addConstellation('cassiopeia', 'Cassiopeia', [1234, 5678, 9012], 0x0000ff);
+    // addConstellation('cassiopeia', 'Cassiopeia', [1234, 5678, 9012], 0x0000ff);
 
     scene.background = new THREE.Color(0x000000);
 
@@ -281,7 +289,7 @@
 
     function animate() {
         requestAnimationFrame(animate);
-        material.uniforms.time.value = performance.now()/10;        
+        material.uniforms.time.value = performance.now()/1000;        
         controls.update();
         raycaster.setFromCamera(mouse, camera);
         composer.render();

@@ -31,18 +31,18 @@ void main() {
     vec4 texColor = texture2D(sprite, gl_PointCoord);
     
 
-    float spotScale = 25.0; // Adjust for spot size
-    float spotTime = time * 0.1; // Slow movement
+    float spotScale = 50.0; // Adjust for spot size
+    float spotTime = sin(time * 0.01) * -cos(time * 0.01); // Slow movement
     vec2 spotUV = gl_PointCoord * spotScale + vec2(spotTime);
     float spots = noise(spotUV) * noise(spotUV * 2.0);
-    spots = smoothstep(0.9, 1.0, spots);
+    spots = smoothstep(0.5, 0.8, spots);
 
 
-    float sparkleTime = time * 0.01;
+    float sparkleTime = time * 3.0;
     float sparklePhase = rand(vec2(gl_PointCoord.x, gl_PointCoord.y)) * 6.28318;
 
     float sparkle = sin(sparkleTime + sparklePhase) * 0.5 + 0.5;
-    sparkle *= (1.0 - dist * 0.5); // Fade sparkle at edges
+    sparkle *= exp(1.0 - dist * 1.5); // Fade sparkle at edges
 
     float glow = 1.0 - smoothstep(0.0, 0.2, dist);
     vec3 glowColor = vColor * glow * 0.1;
@@ -58,12 +58,14 @@ void main() {
     vec3 rimColor = vColor + vec3(0.2, 0.1, 0.0);
     baseColor *= mix(1.0, 0.3, spots * (1.0 - dist * 2.0));
 
-    vec3 finalColor = vColor * texColor.rgb + glowColor;
-    // vec3 finalColor = baseColor;
+    // vec3 finalColor = vColor * texColor.rgb + glowColor;
+    vec3 finalColor = baseColor;
     // finalColor += rimColor * rim * 0.5;
     // finalColor += vColor * sparkle * 0.5 * vRadius;
     // finalColor *= glow;
-    
+
+    // finalColor += baseColor
+    finalColor += rimColor * rim * 0.5;
     finalColor += sparkleColor  * sparkle * 0.2 * vRadius; // Add sparkle effect
 
     float alpha = texColor.a * (glow + rim * 0.5);
