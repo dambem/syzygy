@@ -58,13 +58,13 @@ void main() {
     vec3 rimColor = vColor + vec3(0.2, 0.1, 0.0);
     baseColor *= mix(1.0, 0.3, spots * (1.0 - dist * 2.0));
 
-    // vec3 finalColor = vColor * texColor.rgb + glowColor;
-    vec3 finalColor = baseColor;
-    finalColor += rimColor * rim * 0.5;
-    finalColor += vColor * sparkle * 0.5 * vRadius;
-    finalColor *= glow;
+    vec3 finalColor = vColor * texColor.rgb + glowColor;
+    // vec3 finalColor = baseColor;
+    // finalColor += rimColor * rim * 0.5;
+    // finalColor += vColor * sparkle * 0.5 * vRadius;
+    // finalColor *= glow;
     
-    // finalColor += sparkleColor  * sparkle * 0.2 * vRadius; // Add sparkle effect
+    finalColor += sparkleColor  * sparkle * 0.2 * vRadius; // Add sparkle effect
 
     float alpha = texColor.a * (glow + rim * 0.5);
     

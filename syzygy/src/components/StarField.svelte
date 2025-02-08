@@ -39,6 +39,10 @@
   onMount(async () => {
     stars = await loadStarData();
     const scene = new THREE.Scene();
+    const textureLoader = new THREE.TextureLoader()
+    const earthNightTexture = textureLoader.load('./textures/sprites/earth_night.jpg')
+    earthNightTexture.colorSpace = THREE.SRGBColorSpace
+
     const camera = new THREE.PerspectiveCamera(1, window.innerWidth/window.innerHeight, 0.1, 10000000)
     const renderer = new THREE.WebGLRenderer();
     const gui = new GUI();
@@ -107,62 +111,43 @@
     addConstellation('cassiopeia', 'Cassiopeia', [1234, 5678, 9012], 0x0000ff);
 
     scene.background = new THREE.Color(0x000000);
-    // const fogColor = new THREE.Color(0x000010);
-    // scene.fog = new THREE.FogExp2(fogColor, 0.02);
 
     renderer.setSize(window.innerWidth, window.innerHeight)
     container.appendChild(renderer.domElement);  // Add this line!
 
     const geometry = new THREE.BufferGeometry();
-    const sphereGeometry = new THREE.SphereGeometry(1, 16, 16);
-    const material2 = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    transparent: false,
-    opacity: 1.0
+    const sphereGeometry = new THREE.SphereGeometry(0.05, 16, 16);
+    const material2 = new THREE.MeshStandardMaterial({
+        map: earthNightTexture,
+        metalness: 0,
+        roughness: 1
     });
-    const instancedMesh = new THREE.InstancedMesh(
-    sphereGeometry,
-    material2,
-    stars.length
-    );
-
+    const ambientLight = new THREE.AmbientLight(0x404040);
+    scene.add(ambientLight);
+    const pointLight = new THREE.PointLight(0xffffff, 20);
+    pointLight.position.set(-1, 1, -1);
+    scene.add(pointLight);
+    const sphere = new THREE.Mesh(sphereGeometry, material2);
+    scene.add(sphere);
+    
     const positions = new Float32Array(stars.length * 3);
     const colors = new THREE.Float32BufferAttribute(stars.length * 3, 3);
     const color = new THREE.Color();
-    const matrix = new THREE.Matrix4();
 
     const radius = new Float32Array(stars.length)
     stars.forEach((star, i) => {
         positions.set([star.x, star.y, star.z], i * 3);
-        // color.setHSL(class_to_color['A'], THREE.SRGBColorSpace);
-        // matrix.setPosition(star.x, star.y, star.z);
-        // matrix.scale(new THREE.Vector3(1,1,1));
-        // matrix.identity()
-        // .setPosition(star.x, star.y, star.z)
-        // .scale(new THREE.Vector3(star.brightness, star.brightness, star.brightness));
-        // instancedMesh.setMatrixAt(i, matrix);
-
         color.setHSL(
             class_to_color[star.class][0],  // hue
             class_to_color[star.class][1],  // saturation
             class_to_color[star.class][2]   // lightness
             , THREE.SRGBColorSpace
         );
-        instancedMesh.setColorAt(i, color);
 
-        // const hue = Math.floor((200 + 1) / 2));
-        // if (star.class == 'A')
-        //     colors.setXYZ(i, 0, 2, 0)
-        // else
         colors.setXYZ(i, color.r, color.g, color.b);
-        // color.setHex(`${hue.toString(16)}${hue.toString(16)}${hue.toString(16)}`);
         radius[i] = star.brightness;
     })
-    const ambientLight = new THREE.AmbientLight(0x404040);
-    scene.add(ambientLight);
-    const pointLight = new THREE.PointLight(0xffffff, 1);
-    pointLight.position.set(100, 100, 100);
-    scene.add(pointLight);
+
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('color', colors);
     geometry.setAttribute('radius', new THREE.BufferAttribute(radius, 1))
@@ -201,15 +186,13 @@
     const composer = new EffectComposer(renderer);
     composer.addPass(renderScene);
     composer.addPass(bloomPass);
-    camera.position.z = 1;
+    camera.position.z = 150;
     
     const controls = new OrbitControls(camera, renderer.domElement);
     let selectedPoints = [];
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
-
-
 
     function onClick(event) {
         const rect = renderer.domElement.getBoundingClientRect();
@@ -255,9 +238,6 @@
         }
 
     }
-
-    // const axesHelper = new THREE.AxesHelper( 5 );
-    // scene.add( axesHelper );
 
     mouseOver.add(guiState, 'selectedStar')
     .name('Label')
