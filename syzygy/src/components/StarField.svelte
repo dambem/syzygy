@@ -136,7 +136,6 @@
         positions.set([star.x, star.y, star.z], i * 3);
         // color.setHSL(class_to_color['A'], THREE.SRGBColorSpace);
         // matrix.setPosition(star.x, star.y, star.z);
-        const scale = star.brightness;
         // matrix.scale(new THREE.Vector3(1,1,1));
         // matrix.identity()
         // .setPosition(star.x, star.y, star.z)
@@ -168,7 +167,7 @@
     geometry.setAttribute('color', colors);
     geometry.setAttribute('radius', new THREE.BufferAttribute(radius, 1))
  
-    const sprite = new THREE.TextureLoader().load( 'textures/sprites/star.png' );
+    const sprite = new THREE.TextureLoader().load( 'textures/sprites/circle.png' );
     sprite.colorSpace = THREE.SRGBColorSpace;
  
     const material = new THREE.ShaderMaterial({
@@ -180,7 +179,7 @@
         vertexShader: vertexShader,
         fragmentShader: fragmentShader,
         transparent: true,
-        depthWrite: true,
+        depthWrite: false,
         blending: THREE.AdditiveBlending  // Important for glow effect
     });
 
@@ -257,8 +256,8 @@
 
     }
 
-    const axesHelper = new THREE.AxesHelper( 5 );
-    scene.add( axesHelper );
+    // const axesHelper = new THREE.AxesHelper( 5 );
+    // scene.add( axesHelper );
 
     mouseOver.add(guiState, 'selectedStar')
     .name('Label')
@@ -302,7 +301,7 @@
 
     function animate() {
         requestAnimationFrame(animate);
-        material.uniforms.time.value = performance.now() / 1000;        
+        material.uniforms.time.value = performance.now()/10;        
         controls.update();
         raycaster.setFromCamera(mouse, camera);
         composer.render();
