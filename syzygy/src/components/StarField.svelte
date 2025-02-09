@@ -207,7 +207,7 @@
 
         const textMesh1 = new THREE.Mesh(geometry_t, [
             new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.35 }),
-            new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.35 })
+            new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.30 })
             ])
 
         // textMesh1.castShadow = true
@@ -294,8 +294,8 @@
 
     }
     const options = {
-        duration: 2,
-        ease: "none"
+        duration: 2.0,
+        ease: "power2.inOut"
     }
 
     mouseOver.add(guiState, 'selectedStar')
@@ -303,7 +303,7 @@
     .listen();
     playButton.addEventListener('click', ()=> {
         gsap.to(camera.position, {
-        z: 200,
+        z: 150,
         duration: options.duration,
         ease: options.ease,
         onComplete: () => {
@@ -353,6 +353,7 @@
         requestAnimationFrame(animate);
         material.uniforms.time.value = performance.now()/1000;        
         controls.update();
+
         raycaster.setFromCamera(mouse, camera);
         composer.render();
     }
