@@ -353,7 +353,7 @@
         requestAnimationFrame(animate);
         material.uniforms.time.value = performance.now()/1000;        
         controls.update();
-
+        points.rotation.z += 0.0001
         raycaster.setFromCamera(mouse, camera);
         composer.render();
     }
