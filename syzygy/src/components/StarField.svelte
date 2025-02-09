@@ -12,6 +12,12 @@
   import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
   import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
   import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+  import { LuminosityShader } from 'three/addons/shaders/LuminosityShader.js';
+  import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+  import { RGBShiftShader } from 'three/addons/shaders/RGBShiftShader.js';
+  import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+  import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+  import { gsap } from 'gsap';
 
   let container;
   let stars = [];
@@ -44,12 +50,22 @@
   },
 
     }
+
+
+    
   onMount(async () => {
     stars = await loadStarData();
     const scene = new THREE.Scene();
+    const playButton = document.querySelector('.play-button');
+
     const textureLoader = new THREE.TextureLoader()
     const earthNightTexture = textureLoader.load('./textures/sprites/earth_night.jpg')
+    const earthNormal = textureLoader.load('./textures/sprites/earth_normal.tif')
+    const earthSpecular = textureLoader.load('./textures/sprites/earth_specular.tif')
+    let textGeo, textMesh1;
+    let materials;
     earthNightTexture.colorSpace = THREE.SRGBColorSpace
+    let currentAnimation = 'linear';
 
     const camera = new THREE.PerspectiveCamera(1, window.innerWidth/window.innerHeight, 0.1, 10000000)
     const renderer = new THREE.WebGLRenderer();
@@ -116,7 +132,10 @@
         .name(name)
         .onChange(() => updateConstellation(id));
     }
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5))
     // addConstellation('cassiopeia', 'Cassiopeia', [1234, 5678, 9012], 0x0000ff);
+    const loader = new FontLoader();
+
 
     scene.background = new THREE.Color(0x000000);
 
@@ -124,15 +143,17 @@
     container.appendChild(renderer.domElement);  // Add this line!
 
     const geometry = new THREE.BufferGeometry();
-    const sphereGeometry = new THREE.SphereGeometry(0.05, 16, 16);
+    const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
     const material2 = new THREE.MeshStandardMaterial({
         map: earthNightTexture,
-        metalness: 0,
-        roughness: 1
+        normalMap: earthNormal,
+        normalScale: new THREE.Vector2(0.5, 0.5) ,
+        // emissiveMap: earthSpecular,
+        metalness: 0.0,
+        roughness: 1.0
     });
-    const ambientLight = new THREE.AmbientLight(0x404040);
-    scene.add(ambientLight);
-    const pointLight = new THREE.PointLight(0xffffff, 20);
+
+    const pointLight = new THREE.PointLight(0xffffff, 10);
     pointLight.position.set(-1, 1, -1);
     scene.add(pointLight);
     const sphere = new THREE.Mesh(sphereGeometry, material2);
@@ -156,13 +177,15 @@
         radius[i] = star.brightness;
     })
 
+
+
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('color', colors);
     geometry.setAttribute('radius', new THREE.BufferAttribute(radius, 1))
  
     const sprite = new THREE.TextureLoader().load( 'textures/sprites/circle.png' );
     sprite.colorSpace = THREE.SRGBColorSpace;
- 
+
     const material = new THREE.ShaderMaterial({
         uniforms: {
             sprite: { value: sprite },
@@ -175,7 +198,25 @@
         depthWrite: false,
         blending: THREE.AdditiveBlending  // Important for glow effect
     });
+    loader.load('./fonts/optimer_regular.typeface.json', function (font) {
+        const geometry_t = new TextGeometry('syzygy', {
+            font:font,
+            size: 6,
+            height: 2
+        })
 
+        const textMesh1 = new THREE.Mesh(geometry_t, [
+            new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.35 }),
+            new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.35 })
+            ])
+
+        // textMesh1.castShadow = true
+        textMesh1.position.z = 1000
+        textMesh1.position.x -= 12
+        textMesh1.position.y -= 20
+        textMesh1.scale.z = 0.01
+        scene.add(textMesh1)
+    })
     const points = new THREE.Points(geometry, material);
     scene.add(points);
     const bloomParams = {
@@ -192,9 +233,15 @@
         bloomParams.bloomThreshold
     );
     const composer = new EffectComposer(renderer);
+    // scene.fog = new THREE.Fog(0x0066ff, 0.1, 0.5);
+
     composer.addPass(renderScene);
+    const effect2 = new ShaderPass( RGBShiftShader );
+    effect2.uniforms[ 'amount' ].value = 0.0002;
+    composer.addPass( effect2 );
+
     composer.addPass(bloomPass);
-    camera.position.z = 150;
+    camera.position.z = 6000;
     
     const controls = new OrbitControls(camera, renderer.domElement);
     let selectedPoints = [];
@@ -246,10 +293,25 @@
         }
 
     }
+    const options = {
+        duration: 2,
+        ease: "none"
+    }
 
     mouseOver.add(guiState, 'selectedStar')
     .name('Label')
     .listen();
+    playButton.addEventListener('click', ()=> {
+        gsap.to(camera.position, {
+        z: 200,
+        duration: options.duration,
+        ease: options.ease,
+        onComplete: () => {
+            scene.remove(textMesh1);
+            playButton.remove()        }
+    });
+    })
+
 
     // container.addEventListener('click', onClick);  // For individual stars
     var lastHoveredIndex = -1
@@ -312,12 +374,39 @@
   })
 </script>
 
-<div bind:this={container} class="star-container"></div>
+<div bind:this={container} class="star-container">
+
+    <div class="play-button">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="1">
+            <polygon points="5,3 19,12 5,21" fill="white"/>
+        </svg>
+    </div>
+</div>
 
 <style>
         .star-container {
         width: 100%;
         height: 100vh;
         overflow: hidden;
+    }
+    .play-button {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 80px;
+        height: 80px;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 25%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+
+    .play-button:hover {
+        background: rgba(0, 0, 0, 0.5);
+        transform: translate(-50%, -50%) scale(1.1);
     }
 </style>
