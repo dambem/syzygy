@@ -18,9 +18,16 @@
   import { FontLoader } from 'three/addons/loaders/FontLoader.js';
   import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
   import { gsap } from 'gsap';
+//   let toggleScale = false;
 
   let container;
   let stars = [];
+  let scaled = true;
+  let animationStartTime;
+  let animationProgress = 0; // 1 = fully scaled, 0 = fully unscaled
+  let animationDuration = 2; // Animation duration in milliseconds
+  const state = { animationProgress: 1 };
+
   const class_to_color = {
     'O': [0.667, 1.000, 0.500],  // Deep blue
     'B': [0.581, 0.730, 0.780],  // Light blue
@@ -52,12 +59,13 @@
     }
 
 
+
     
   onMount(async () => {
     stars = await loadStarData();
     const scene = new THREE.Scene();
     const playButton = document.querySelector('.play-button');
-
+    const scaleButton = document.querySelector('.scale-button')
     const textureLoader = new THREE.TextureLoader()
     const earthNightTexture = textureLoader.load('./textures/sprites/earth_night.jpg')
     const earthNormal = textureLoader.load('./textures/sprites/earth_normal.tif')
@@ -66,7 +74,6 @@
     let materials;
     earthNightTexture.colorSpace = THREE.SRGBColorSpace
     let currentAnimation = 'linear';
-
     const camera = new THREE.PerspectiveCamera(1, window.innerWidth/window.innerHeight, 0.1, 10000000)
     const renderer = new THREE.WebGLRenderer();
     const gui = new GUI();
@@ -143,22 +150,6 @@
     container.appendChild(renderer.domElement);  // Add this line!
 
     const geometry = new THREE.BufferGeometry();
-    const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
-    const material2 = new THREE.MeshStandardMaterial({
-        map: earthNightTexture,
-        normalMap: earthNormal,
-        normalScale: new THREE.Vector2(0.5, 0.5) ,
-        // emissiveMap: earthSpecular,
-        metalness: 0.0,
-        roughness: 1.0
-    });
-
-    const pointLight = new THREE.PointLight(0xffffff, 10);
-    pointLight.position.set(-1, 1, -1);
-    scene.add(pointLight);
-    const sphere = new THREE.Mesh(sphereGeometry, material2);
-    scene.add(sphere);
-    
     const positions = new Float32Array(stars.length * 3);
     const colors = new THREE.Float32BufferAttribute(stars.length * 3, 3);
     const color = new THREE.Color();
@@ -202,12 +193,12 @@
         const geometry_t = new TextGeometry('syzygy', {
             font:font,
             size: 6,
-            height: 2
+            height: 3
         })
 
         const textMesh1 = new THREE.Mesh(geometry_t, [
             new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.35 }),
-            new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.30 })
+            new THREE.MeshPhongMaterial({ color: 0x5544ff, emissive: 0x5544ff, emissiveIntensity: 0.50 })
             ])
 
         // textMesh1.castShadow = true
@@ -311,7 +302,21 @@
             playButton.remove()        }
     });
     })
-
+    toggleScale()
+    function toggleScale() {
+    scaled = !scaled;
+    gsap.to(state, {
+      animationProgress: scaled ? 0 : 1,
+      duration: animationDuration,
+      ease: 'power2.inOut',
+      onUpdate: function() {
+        animationProgress = state.animationProgress;
+        console.log("Animation Progress:", state.animationProgress);
+        updatePositions(animationProgress);
+      },
+    });
+    }
+    scaleButton.addEventListener('click', toggleScale)
 
     // container.addEventListener('click', onClick);  // For individual stars
     var lastHoveredIndex = -1
@@ -353,11 +358,29 @@
         requestAnimationFrame(animate);
         material.uniforms.time.value = performance.now()/1000;        
         controls.update();
-        points.rotation.z += 0.0001
+        // points.rotation.z += 0.0001
         raycaster.setFromCamera(mouse, camera);
         composer.render();
     }
 
+
+    function updatePositions(progress) {
+        stars.forEach((star, i) => {
+            const scaledX = star.distance * star.x;
+            const scaledY = star.distance * star.y;
+            const scaledZ = star.distance * star.z;
+
+            const interpolatedX = star.x + (scaledX - star.x) * progress;
+            const interpolatedY = star.y + (scaledY - star.y) * progress;
+            const interpolatedZ = star.z + (scaledZ - star.z) * progress;
+
+            positions[i * 3] = interpolatedX;
+            positions[i * 3 + 1] = interpolatedY;
+            positions[i * 3 + 2] = interpolatedZ;
+        });
+
+        geometry.attributes.position.needsUpdate = true;
+    }
     animate();
 
     function handleResize() {
@@ -376,7 +399,17 @@
 </script>
 
 <div bind:this={container} class="star-container">
-
+    <!-- <button class="scale-button">Toggle Scale</button> -->
+    <div class="scale-button">
+        <p style='color:white;'>
+            <b>@</b>
+        </p>
+    </div>
+    <div class="view-button button">
+        <p style='color:white;'>
+            <b>V</b>
+        </p>
+    </div>
     <div class="play-button">
         <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="1">
             <polygon points="5,3 19,12 5,21" fill="white"/>
@@ -389,6 +422,44 @@
         width: 100%;
         height: 100vh;
         overflow: hidden;
+    }
+    .button {
+        position: absolute;
+        top: 40%;
+        left: 10%;
+        transform: translate(-50%, -50%);
+        width: 80px;
+        height: 80px;
+        background: rgba(30, 30, 30, 0.3);
+        border-radius: 25%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+    .button:hover {
+        background: rgba(0, 0, 0, 0.5);
+        transform: translate(-50%, -50%) scale(1.1);
+    }
+    .scale-button {
+        position: absolute;
+        top: 20%;
+        left: 10%;
+        transform: translate(-50%, -50%);
+        width: 80px;
+        height: 80px;
+        background: rgba(30, 30, 30, 0.3);
+        border-radius: 25%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+    .scale-button:hover {
+        background: rgba(0, 0, 0, 0.5);
+        transform: translate(-50%, -50%) scale(1.1);
     }
     .play-button {
         position: absolute;
