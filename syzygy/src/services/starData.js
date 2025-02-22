@@ -51,7 +51,7 @@ export async function loadStarData() {
         z: row.z,
         ra: row.RA,
         dec: row.DEC,
-        distance: row.Distance,
+        distance: row.Distance*10,
         class: slice_class(row.SpectralCls),
         color: colorStar(row.SpectralCls),
         brightness: calculateBrightness(row.MAG)

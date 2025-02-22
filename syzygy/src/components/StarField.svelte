@@ -23,6 +23,7 @@
   let container;
   let stars = [];
   let scaled = true;
+  let camera_s = true;
   let animationStartTime;
   let animationProgress = 0; // 1 = fully scaled, 0 = fully unscaled
   let animationDuration = 2; // Animation duration in milliseconds
@@ -65,6 +66,8 @@
     stars = await loadStarData();
     const scene = new THREE.Scene();
     const playButton = document.querySelector('.play-button');
+    const viewButton = document.querySelector('.view-button')
+
     const scaleButton = document.querySelector('.scale-button')
     const textureLoader = new THREE.TextureLoader()
     const earthNightTexture = textureLoader.load('./textures/sprites/earth_night.jpg')
@@ -74,7 +77,7 @@
     let materials;
     earthNightTexture.colorSpace = THREE.SRGBColorSpace
     let currentAnimation = 'linear';
-    const camera = new THREE.PerspectiveCamera(1, window.innerWidth/window.innerHeight, 0.1, 10000000)
+    const camera = new THREE.PerspectiveCamera(1, window.innerWidth/window.innerHeight, 0.1, 1000000000)
     const renderer = new THREE.WebGLRenderer();
     const gui = new GUI();
     const mouseOver = gui.addFolder('SelectedStar');
@@ -140,12 +143,9 @@
         .onChange(() => updateConstellation(id));
     }
     scene.add(new THREE.AmbientLight(0xffffff, 0.5))
-    // addConstellation('cassiopeia', 'Cassiopeia', [1234, 5678, 9012], 0x0000ff);
     const loader = new FontLoader();
 
-
     scene.background = new THREE.Color(0x000000);
-
     renderer.setSize(window.innerWidth, window.innerHeight)
     container.appendChild(renderer.domElement);  // Add this line!
 
@@ -167,8 +167,6 @@
         colors.setXYZ(i, color.r, color.g, color.b);
         radius[i] = star.brightness;
     })
-
-
 
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('color', colors);
@@ -224,13 +222,12 @@
         bloomParams.bloomThreshold
     );
     const composer = new EffectComposer(renderer);
-    // scene.fog = new THREE.Fog(0x0066ff, 0.1, 0.5);
-
     composer.addPass(renderScene);
+
     const effect2 = new ShaderPass( RGBShiftShader );
     effect2.uniforms[ 'amount' ].value = 0.0002;
+    
     composer.addPass( effect2 );
-
     composer.addPass(bloomPass);
     camera.position.z = 6000;
     
@@ -292,6 +289,27 @@
     mouseOver.add(guiState, 'selectedStar')
     .name('Label')
     .listen();
+
+    function toggleCamera() {
+        camera_s = !camera_s;
+    }
+    
+
+    viewButton.addEventListener('click', ()=> {
+        camera_s = !camera_s;
+        gsap.to(camera.position, {
+        z: camera_s ? 500 : 0,
+        duration: options.duration,
+        ease: options.ease,
+
+        onComplete: () => {
+            scene.remove(textMesh1);
+            camera.fov = camera_s ? 1: 90
+            camera.updateProjectionMatrix();
+
+        }
+    });
+    })
     playButton.addEventListener('click', ()=> {
         gsap.to(camera.position, {
         z: 150,
@@ -318,7 +336,6 @@
     }
     scaleButton.addEventListener('click', toggleScale)
 
-    // container.addEventListener('click', onClick);  // For individual stars
     var lastHoveredIndex = -1
     function update(event) {
         mouse.x = (event.clientX/ window.innerWidth) * 2 -1;
